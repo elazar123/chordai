@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(npm run dev:*)",
+      "Bash(curl -s localhost:5178/api/*)",
+      "Bash(curl -s -m 3 localhost:5178/api/*)",
+      "Bash(ffprobe *)",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__read_network_requests",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__find",
+      "mcp__Claude_Browser__preview_list",
+      "mcp__Claude_Browser__preview_logs",
+      "mcp__Claude_Browser__tabs_context",
+      "mcp__Claude_Browser__resize_window"
+    ]
+  }
+}

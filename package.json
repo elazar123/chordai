@@ -1,0 +1,23 @@
+{
+  "name": "chordai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "מוציא אקורדים ומילים משיר ביוטיוב או מהקלטה",
+  "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:web": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "NODE_ENV=production node server/index.js",
+    "setup": "npm install && npm --prefix web install && python3.11 -m venv .venv && .venv/bin/pip install -r analyzer/requirements.txt"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

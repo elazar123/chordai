@@ -1,0 +1,14 @@
+node_modules/
+.venv/
+web/dist/
+
+# User content: downloaded audio and generated chord sheets.
+data/audio/
+data/songs/
+data/cache/
+
+.env
+*.log
+.DS_Store
+__pycache__/
+*.pyc
