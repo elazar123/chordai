@@ -108,7 +108,7 @@ function buildPanel() {
   panel.className = "chordai-panel";
   panel.innerHTML = `
     <div class="chordai-head">
-      <span class="chordai-title">ChordAI</span>
+      <span class="chordai-title">ChordAI <b class="chordai-ver"></b></span>
       <div class="chordai-actions">
         <button class="chordai-btn" data-act="down" title="הורד חצי טון">−</button>
         <span class="chordai-transpose">0</span>
@@ -154,6 +154,11 @@ function buildPanel() {
   };
   panel.querySelector('[data-act="simple"]').classList.toggle("on", state.simple);
   showStability(panel.querySelector('[data-act="stability"]'));
+
+  // Showing the version makes "did my update actually load?" answerable at a
+  // glance, instead of guessing from behaviour.
+  const version = chrome.runtime?.getManifest?.()?.version;
+  if (version) panel.querySelector(".chordai-ver").textContent = version;
 
   makeDraggable(panel, panel.querySelector(".chordai-head"));
   document.body.appendChild(panel);

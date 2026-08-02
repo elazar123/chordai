@@ -35,6 +35,14 @@
   letter-spacing: 0.02em;
   color: #f0a63c;
   flex: 1;
+  direction: ltr;
+  text-align: start;
+}
+
+.chordai-ver {
+  font-weight: 500;
+  color: #6a7185;
+  font-size: 10px;
 }
 
 .chordai-actions {
