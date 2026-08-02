@@ -166,6 +166,20 @@ api.get("/songs", (req, res) => {
   res.json(listSongs(req.user?.id));
 });
 
+/**
+ * Look a song up by its YouTube id.
+ * The browser extension only knows which video is playing, so this is how it
+ * asks whether we already have chords for it. Declared before "/songs/:id" so
+ * that route does not swallow the path.
+ */
+api.get("/songs/by-video/:videoId", (req, res) => {
+  const song = findByVideoId(req.params.videoId);
+  if (!song || !ownsSong(req.user, song)) {
+    return res.status(404).json({ error: "השיר עדיין לא נותח" });
+  }
+  res.json(song);
+});
+
 api.get("/songs/:id", (req, res) => {
   const song = getSong(req.params.id);
   // A song belonging to someone else is reported as missing, not as forbidden:

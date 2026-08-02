@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, subscribeToJob } from "../lib/api.js";
+import { api, subscribeToJob, IS_STATIC } from "../lib/api.js";
 import { formatTime } from "../lib/music.js";
 import Recorder from "../components/Recorder.jsx";
 
@@ -110,6 +110,30 @@ export default function Home() {
   }
 
   const busy = Boolean(job) && job.status !== "error";
+
+  // The published bundle has no analyzer behind it: it is a songbook, not a tool.
+  if (IS_STATIC) {
+    return (
+      <div className="container">
+        <div className="hero">
+          <h1>אקורדים ומילים</h1>
+          <p>בחר שיר כדי לראות את האקורדים והמילים, ולנגן במקביל.</p>
+        </div>
+
+        {loadingLibrary ? (
+          <div className="empty">טוען…</div>
+        ) : songs.length === 0 ? (
+          <div className="empty">אין עדיין שירים באתר הזה.</div>
+        ) : (
+          <div className="song-grid">
+            {songs.map((song) => (
+              <SongCard key={song.id} song={song} onOpen={() => navigate(`/song/${song.id}`)} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="container">

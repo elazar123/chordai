@@ -1,3 +1,11 @@
+/**
+ * A published bundle has no server behind it: the chord sheets are plain JSON
+ * files sitting next to the page. `publish.js` sets this flag in index.html.
+ */
+export const IS_STATIC = Boolean(globalThis.window?.__CHORDAI_STATIC__);
+
+const READ_ONLY = "האתר הזה הוא גרסה לצפייה בלבד — לעריכה יש לפתוח את ChordAI המקומי";
+
 async function request(url, options = {}) {
   const response = await fetch(url, options);
   const isJson = response.headers.get("content-type")?.includes("application/json");
@@ -8,40 +16,62 @@ async function request(url, options = {}) {
   return body;
 }
 
+/** Read a file from the published bundle, relative to wherever it is hosted. */
+async function readStatic(file) {
+  const response = await fetch(`./data/${file}`, { cache: "no-cache" });
+  if (!response.ok) throw new Error("לא הצלחתי לטעון את השיר");
+  return response.json();
+}
+
+function refuse() {
+  return Promise.reject(new Error(READ_ONLY));
+}
+
 export const api = {
-  session: () => request("/api/auth/session"),
+  session: () =>
+    IS_STATIC
+      ? Promise.resolve({ authEnabled: false, user: null, static: true })
+      : request("/api/auth/session"),
 
-  logout: () => request("/api/auth/logout", { method: "POST" }),
+  logout: () => (IS_STATIC ? Promise.resolve({}) : request("/api/auth/logout", { method: "POST" })),
 
-  listSongs: () => request("/api/songs"),
+  listSongs: () => (IS_STATIC ? readStatic("index.json") : request("/api/songs")),
 
-  getSong: (id) => request(`/api/songs/${id}`),
+  getSong: (id) => (IS_STATIC ? readStatic(`songs/${id}.json`) : request(`/api/songs/${id}`)),
 
+  // Everything below changes data, which a published bundle cannot do.
   updateSong: (id, patch) =>
-    request(`/api/songs/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    }),
+    IS_STATIC
+      ? refuse()
+      : request(`/api/songs/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        }),
 
-  deleteSong: (id) => request(`/api/songs/${id}`, { method: "DELETE" }),
+  deleteSong: (id) =>
+    IS_STATIC ? refuse() : request(`/api/songs/${id}`, { method: "DELETE" }),
 
   setLyrics: (id, lyrics) =>
-    request(`/api/songs/${id}/lyrics`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lyrics }),
-    }),
+    IS_STATIC
+      ? refuse()
+      : request(`/api/songs/${id}/lyrics`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lyrics }),
+        }),
 
   analyzeYouTube: (payload) =>
-    request("/api/analyze/youtube", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }),
+    IS_STATIC
+      ? refuse()
+      : request("/api/analyze/youtube", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
 
   analyzeUpload: (formData) =>
-    request("/api/analyze/upload", { method: "POST", body: formData }),
+    IS_STATIC ? refuse() : request("/api/analyze/upload", { method: "POST", body: formData }),
 };
 
 /**

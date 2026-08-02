@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api } from "../lib/api.js";
+import { api, IS_STATIC } from "../lib/api.js";
 import { formatTime, transposeKey, uniqueChords, toStoredChord } from "../lib/music.js";
 import { INSTRUMENTS } from "../lib/instruments.js";
 import ChordSheet from "../components/ChordSheet.jsx";
@@ -337,18 +337,21 @@ export default function SongPage() {
           </button>
         </div>
 
-        <div className="tool-group">
-          <button
-            className={`btn ${editing ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => setEditing((value) => !value)}
-            title="לחיצה על מילה או אקורד תאפשר לתקן אותם"
-          >
-            {editing ? "✓ סיום עריכה" : "✎ עריכה"}
-          </button>
-          <button className="btn btn-ghost" onClick={() => setLyricsOpen(true)}>
-            הדבקת מילים
-          </button>
-        </div>
+        {/* A published bundle is read-only; hide anything that writes. */}
+        {!IS_STATIC && (
+          <div className="tool-group">
+            <button
+              className={`btn ${editing ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setEditing((value) => !value)}
+              title="לחיצה על מילה או אקורד תאפשר לתקן אותם"
+            >
+              {editing ? "✓ סיום עריכה" : "✎ עריכה"}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setLyricsOpen(true)}>
+              הדבקת מילים
+            </button>
+          </div>
+        )}
 
         <div className="topbar-spacer" />
 
@@ -360,9 +363,11 @@ export default function SongPage() {
 
         <div className="tool-group">
           <button className="btn" onClick={() => window.print()}>🖨 הדפסה</button>
-          <button className="btn btn-ghost btn-danger btn-icon" onClick={remove} title="מחיקה">
-            🗑
-          </button>
+          {!IS_STATIC && (
+            <button className="btn btn-ghost btn-danger btn-icon" onClick={remove} title="מחיקה">
+              🗑
+            </button>
+          )}
         </div>
       </div>
 

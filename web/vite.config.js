@@ -5,6 +5,9 @@ const API_TARGET = process.env.CHORDAI_API || "http://localhost:5178";
 
 export default defineConfig({
   plugins: [react()],
+  // Relative asset paths so a published bundle also works when it is served from
+  // a subdirectory, which is what GitHub Pages does.
+  base: "./",
   server: {
     port: 5177,
     // Proxy keeps the browser on one origin in dev, so audio playback, uploads
