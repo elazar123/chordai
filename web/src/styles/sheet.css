@@ -295,6 +295,144 @@
   cursor: pointer;
 }
 
+/* ---------- chord diagrams ---------- */
+
+.diagram-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+}
+
+.chord-diagram {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.diagram-name {
+  font-family: var(--font-chord);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 2px;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.diagram-missing {
+  color: var(--text-faint);
+  font-size: 20px;
+  line-height: 60px;
+}
+
+.dg-line {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.dg-nut {
+  fill: var(--text-dim);
+}
+
+.dg-dot {
+  fill: var(--accent);
+}
+
+.dg-open {
+  fill: none;
+  stroke: var(--text-dim);
+  stroke-width: 1.2;
+}
+
+.dg-mark {
+  fill: var(--text-faint);
+  font-size: 7px;
+}
+
+.dg-fretlabel {
+  fill: var(--text-dim);
+  font-size: 8px;
+  font-family: var(--font-chord);
+}
+
+.dg-key-white {
+  fill: var(--bg-input);
+  stroke: var(--border-strong);
+  stroke-width: 0.8;
+}
+
+.dg-key-white.on {
+  fill: var(--accent);
+}
+
+.dg-key-black {
+  fill: var(--text);
+  stroke: var(--border-strong);
+  stroke-width: 0.6;
+}
+
+.dg-key-black.on {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+/* ---------- repeated progressions ---------- */
+
+.repeat-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 4px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+}
+
+.repeat-count {
+  font-family: var(--font-chord);
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--text-dim);
+  direction: ltr;
+}
+
+/* ---------- youtube ---------- */
+
+.yt-frame {
+  display: none;
+  max-width: 940px;
+  margin: 0 auto 10px;
+}
+
+.yt-frame.visible {
+  display: block;
+}
+
+.yt-frame iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* Keep the hidden player in the layout but out of sight, so YouTube still
+   considers it a real embed and plays. */
+.yt-frame:not(.visible) iframe {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ---------- editing ---------- */
 
 .edit-hint {
@@ -477,6 +615,32 @@
 
   .instrumental .chord {
     border: 1pt solid #000;
+  }
+
+  .diagram-strip {
+    border: 1pt solid #000;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .dg-dot,
+  .dg-key-white.on,
+  .dg-key-black.on {
+    fill: #000 !important;
+  }
+
+  .dg-line,
+  .dg-open {
+    stroke: #000 !important;
+  }
+
+  .dg-key-white {
+    fill: #fff !important;
+    stroke: #000 !important;
+  }
+
+  .repeat-group {
+    border-color: #000;
   }
 
   .block.stanza-break {

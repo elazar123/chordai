@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { displayChord } from "../lib/music.js";
+import { collapseRepeats } from "../lib/repeats.js";
 
 /** Small in-place editor used for both words and chord names. */
 function InlineInput({ value, className, placeholder, onCommit, onCancel }) {
@@ -40,6 +41,7 @@ export default function ChordSheet({
   autoScroll = false,
   onSeek,
   editing = false,
+  collapse = true,
   onWordEdit,
   onChordEdit,
 }) {
@@ -118,6 +120,20 @@ export default function ChordSheet({
         const ref = active ? activeRef : null;
 
         if (block.type === "instrumental") {
+          // Repeats are found on the names actually shown, not the stored ones:
+          // with simplification on, Cmaj7 and C read as the same chord and the
+          // loop only becomes visible once they compare equal.
+          // Collapsing renumbers the chords, so edit mode always shows them raw.
+          const groups =
+            collapse && !editing
+              ? collapseRepeats(
+                  block.chords.map((chord) => ({
+                    ...chord,
+                    chord: displayChord(chord.chord, options),
+                  }))
+                )
+              : null;
+
           return (
             <div
               key={index}
@@ -126,14 +142,33 @@ export default function ChordSheet({
               onDoubleClick={() => !editing && onSeek?.(block.start)}
             >
               <span className="instrumental-tag">נגינה</span>
-              {block.chords.map((chord, i) => (
-                <ChordSlot
-                  key={i}
-                  chord={chord}
-                  playing={isPlaying(chord)}
-                  descriptor={{ block: index, inst: i }}
-                />
-              ))}
+
+              {groups
+                ? groups.map((group, g) => (
+                    <span className="repeat-group" key={g}>
+                      {group.chords.map((chord, i) => (
+                        <span
+                          key={i}
+                          className={`chord${isPlaying(chord) ? " playing" : ""}`}
+                          onClick={() => onSeek?.(chord.start)}
+                        >
+                          {/* Already display names — do not transpose twice. */}
+                          {chord.chord}
+                        </span>
+                      ))}
+                      {group.times > 1 && (
+                        <span className="repeat-count">×{group.times}</span>
+                      )}
+                    </span>
+                  ))
+                : block.chords.map((chord, i) => (
+                    <ChordSlot
+                      key={i}
+                      chord={chord}
+                      playing={isPlaying(chord)}
+                      descriptor={{ block: index, inst: i }}
+                    />
+                  ))}
             </div>
           );
         }

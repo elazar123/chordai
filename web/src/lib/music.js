@@ -37,12 +37,34 @@ export function transposeChord(name, semitones, preferFlats = false) {
 }
 
 /**
+ * Reduce a chord to the triad most players will actually strum.
+ * The detector is happy to report Cmaj7 / Esus4 / G6 from a single passing note,
+ * which clutters a sheet that someone is trying to read while playing.
+ * Minor and diminished survive — they change the chord's identity; sevenths,
+ * sixths and suspensions do not.
+ */
+export function simplifyChord(name) {
+  const parsed = parseChord(name);
+  if (!parsed) return name;
+
+  const { root, suffix } = parsed;
+  if (suffix.startsWith("dim")) return root + "dim";
+  // "m", "m7", "m6", "m9" — but not "maj7".
+  if (suffix.startsWith("m") && !suffix.startsWith("maj")) return root + "m";
+  return root;
+}
+
+/**
  * Chords the player actually fingers.
  * `transpose` moves the sounding key; `capo` raises the strings, so the shapes
  * drop by the capo position.
  */
-export function displayChord(name, { transpose = 0, capo = 0, preferFlats = false } = {}) {
-  return transposeChord(name, transpose - capo, preferFlats);
+export function displayChord(
+  name,
+  { transpose = 0, capo = 0, preferFlats = false, simplify = false } = {}
+) {
+  const shifted = transposeChord(name, transpose - capo, preferFlats);
+  return simplify ? simplifyChord(shifted) : shifted;
 }
 
 export function transposeKey(key, semitones, preferFlats = false) {

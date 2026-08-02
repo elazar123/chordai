@@ -7,6 +7,14 @@ import { createJob, getJob, jobEvents } from "../lib/jobs.js";
 import { parseYouTubeUrl, hashFile } from "../lib/media.js";
 import { resyncLyrics } from "../lib/resync.js";
 import {
+  authEnabled,
+  verifyGoogleToken,
+  setSessionCookie,
+  clearSessionCookie,
+  requireAuth,
+  ownsSong,
+} from "../lib/auth.js";
+import {
   listSongs,
   getSong,
   saveSong,
@@ -14,6 +22,7 @@ import {
   isValidId,
   findByVideoId,
   findByAudioHash,
+  claimOrphanSongs,
 } from "../lib/store.js";
 
 export const api = express.Router();
@@ -27,6 +36,40 @@ api.get("/health", (_req, res) => {
   res.json({ ok: true, whisperModel: config.whisperModel, language: config.defaultLanguage });
 });
 
+/** What the browser needs before rendering: is sign-in on, and who is signed in. */
+api.get("/auth/session", (req, res) => {
+  res.json({
+    authEnabled: authEnabled(),
+    clientId: config.googleClientId || null,
+    user: req.user?.local ? null : req.user,
+  });
+});
+
+api.post("/auth/google", async (req, res) => {
+  if (!authEnabled()) return res.status(400).json({ error: "התחברות אינה מופעלת" });
+  try {
+    const user = await verifyGoogleToken(req.body?.credential);
+    setSessionCookie(res, user);
+    // One-time migration: songs made before sign-in existed belong to whoever
+    // signs in first on this install.
+    claimOrphanSongs(user.id);
+    res.json({ user });
+  } catch (error) {
+    // Our own checks (unverified email, address not on the allow-list) carry a
+    // message worth showing; anything from the Google library is internal noise.
+    const ours = error.expose === true;
+    res.status(401).json({ error: ours ? error.message : "ההתחברות נכשלה" });
+  }
+});
+
+api.post("/auth/logout", (_req, res) => {
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+// Everything past this point is per-user data.
+api.use(requireAuth);
+
 api.post("/analyze/youtube", (req, res) => {
   const parsed = parseYouTubeUrl(req.body?.url);
   if (!parsed) {
@@ -36,13 +79,14 @@ api.post("/analyze/youtube", (req, res) => {
   // Already analysed this video? Hand back the stored sheet instead of spending
   // minutes downloading and re-analysing identical audio.
   if (!req.body?.force) {
-    const existing = findByVideoId(parsed.videoId);
+    const existing = findByVideoId(parsed.videoId, req.user?.id);
     if (existing) return res.json({ songId: existing.id, cached: true });
   }
 
   const job = createJob("youtube", {
     url: parsed.url,
     videoId: parsed.videoId,
+    owner: req.user?.id || null,
     language: req.body?.language,
     model: req.body?.model,
     skipLyrics: Boolean(req.body?.skipLyrics),
@@ -62,7 +106,7 @@ api.post("/analyze/upload", upload.single("audio"), async (req, res, next) => {
 
   // The identical file uploaded again returns the sheet we already produced.
   if (!req.body?.force && audioHash) {
-    const existing = findByAudioHash(audioHash);
+    const existing = findByAudioHash(audioHash, req.user?.id);
     if (existing) {
       fs.rm(req.file.path, { force: true }, () => {});
       return res.json({ songId: existing.id, cached: true });
@@ -72,6 +116,7 @@ api.post("/analyze/upload", upload.single("audio"), async (req, res, next) => {
   const job = createJob("upload", {
     tempPath: req.file.path,
     audioHash,
+    owner: req.user?.id || null,
     title: req.body?.title || req.file.originalname?.replace(/\.[^.]+$/, ""),
     origin: req.body?.origin === "recording" ? "recording" : "upload",
     language: req.body?.language,
@@ -117,19 +162,25 @@ api.get("/jobs/:id/events", (req, res) => {
   });
 });
 
-api.get("/songs", (_req, res) => {
-  res.json(listSongs());
+api.get("/songs", (req, res) => {
+  res.json(listSongs(req.user?.id));
 });
 
 api.get("/songs/:id", (req, res) => {
   const song = getSong(req.params.id);
-  if (!song) return res.status(404).json({ error: "השיר לא נמצא" });
+  // A song belonging to someone else is reported as missing, not as forbidden:
+  // there is no reason to confirm that an id exists.
+  if (!song || !ownsSong(req.user, song)) {
+    return res.status(404).json({ error: "השיר לא נמצא" });
+  }
   res.json(song);
 });
 
 api.patch("/songs/:id", (req, res) => {
   const song = getSong(req.params.id);
-  if (!song) return res.status(404).json({ error: "השיר לא נמצא" });
+  if (!song || !ownsSong(req.user, song)) {
+    return res.status(404).json({ error: "השיר לא נמצא" });
+  }
 
   // Only fields a user can legitimately correct by hand.
   const editable = ["title", "artist", "key", "bpm", "blocks", "chords", "capo", "transpose"];
@@ -142,7 +193,9 @@ api.patch("/songs/:id", (req, res) => {
 /** Replace the sheet's lyrics with the real ones, re-synced to the audio. */
 api.post("/songs/:id/lyrics", async (req, res, next) => {
   const song = getSong(req.params.id);
-  if (!song) return res.status(404).json({ error: "השיר לא נמצא" });
+  if (!song || !ownsSong(req.user, song)) {
+    return res.status(404).json({ error: "השיר לא נמצא" });
+  }
 
   const lyrics = String(req.body?.lyrics || "").trim();
   if (!lyrics) return res.status(400).json({ error: "לא התקבלו מילים" });
@@ -160,6 +213,10 @@ api.post("/songs/:id/lyrics", async (req, res, next) => {
 
 api.delete("/songs/:id", (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ error: "מזהה לא תקין" });
+  const existing = getSong(req.params.id);
+  if (!existing || !ownsSong(req.user, existing)) {
+    return res.status(404).json({ error: "השיר לא נמצא" });
+  }
   if (!deleteSong(req.params.id)) return res.status(404).json({ error: "השיר לא נמצא" });
   res.json({ ok: true });
 });

@@ -13,8 +13,10 @@
     "setup": "npm install && npm --prefix web install && python3.11 -m venv .venv && .venv/bin/pip install -r analyzer/requirements.txt"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "google-auth-library": "^11.0.0",
     "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {

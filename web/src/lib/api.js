@@ -9,6 +9,10 @@ async function request(url, options = {}) {
 }
 
 export const api = {
+  session: () => request("/api/auth/session"),
+
+  logout: () => request("/api/auth/logout", { method: "POST" }),
+
   listSongs: () => request("/api/songs"),
 
   getSong: (id) => request(`/api/songs/${id}`),

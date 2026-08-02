@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { formatTime, transposeKey, uniqueChords, toStoredChord } from "../lib/music.js";
+import { INSTRUMENTS } from "../lib/instruments.js";
 import ChordSheet from "../components/ChordSheet.jsx";
+import ChordDiagram from "../components/ChordDiagram.jsx";
 import Player from "../components/Player.jsx";
+import YouTubePlayer from "../components/YouTubePlayer.jsx";
 import LyricsDialog from "../components/LyricsDialog.jsx";
 
 const FONT_MIN = 13;
@@ -22,6 +25,17 @@ export default function SongPage() {
   const [fontSize, setFontSize] = useState(17);
   const [autoScroll, setAutoScroll] = useState(true);
   const [preferFlats, setPreferFlats] = useState(false);
+
+  // Display preferences are per-person, not per-song, so they live in the browser.
+  const [simplify, setSimplify] = useState(
+    () => localStorage.getItem("chordai-simplify") === "1"
+  );
+  const [instrument, setInstrument] = useState(
+    () => localStorage.getItem("chordai-instrument") || "guitar"
+  );
+  const [showDiagrams, setShowDiagrams] = useState(
+    () => localStorage.getItem("chordai-diagrams") !== "0"
+  );
 
   const [editing, setEditing] = useState(false);
   const [saveState, setSaveState] = useState(null);
@@ -162,8 +176,9 @@ export default function SongPage() {
     );
   }
 
-  const options = { transpose, capo, preferFlats };
+  const options = { transpose, capo, preferFlats, simplify };
   const chordList = uniqueChords(song.blocks, options);
+  const isYouTube = song.source?.type === "youtube";
   const shownKey = transposeKey(song.key, transpose - capo, preferFlats);
 
   return (
@@ -277,10 +292,48 @@ export default function SongPage() {
             {preferFlats ? "♭" : "♯"}
           </button>
           <button
+            className={`btn ${simplify ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => {
+              const next = !simplify;
+              setSimplify(next);
+              localStorage.setItem("chordai-simplify", next ? "1" : "0");
+            }}
+            title="הופך אקורדים מורכבים לבסיסיים — Cmaj7 הופך ל-C"
+          >
+            אקורדים פשוטים
+          </button>
+          <button
             className={`btn ${autoScroll ? "btn-primary" : "btn-ghost"}`}
             onClick={() => setAutoScroll((value) => !value)}
           >
             גלילה אוטומטית
+          </button>
+        </div>
+
+        <div className="tool-group">
+          <span className="tool-label">כלי</span>
+          <select
+            className="rate-select"
+            value={instrument}
+            onChange={(event) => {
+              setInstrument(event.target.value);
+              localStorage.setItem("chordai-instrument", event.target.value);
+            }}
+            aria-label="בחירת כלי נגינה"
+          >
+            {Object.values(INSTRUMENTS).map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
+          <button
+            className={`btn ${showDiagrams ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => {
+              const next = !showDiagrams;
+              setShowDiagrams(next);
+              localStorage.setItem("chordai-diagrams", next ? "1" : "0");
+            }}
+          >
+            תרשימים
           </button>
         </div>
 
@@ -320,6 +373,14 @@ export default function SongPage() {
         </p>
       )}
 
+      {showDiagrams && chordList.length > 0 && (
+        <div className="diagram-strip">
+          {chordList.map((chord) => (
+            <ChordDiagram key={chord} name={chord} instrument={instrument} />
+          ))}
+        </div>
+      )}
+
       {song.blocks?.length ? (
         <div style={{ "--sheet-size": `${fontSize}px` }}>
           <ChordSheet
@@ -345,12 +406,22 @@ export default function SongPage() {
         />
       )}
 
-      <Player
-        ref={playerRef}
-        src={song.audioUrl}
-        duration={song.duration}
-        onTimeUpdate={handleTime}
-      />
+      {/* YouTube songs keep no audio of ours — playback comes from their player. */}
+      {isYouTube ? (
+        <YouTubePlayer
+          ref={playerRef}
+          videoId={song.source.videoId}
+          duration={song.duration}
+          onTimeUpdate={handleTime}
+        />
+      ) : (
+        <Player
+          ref={playerRef}
+          src={song.audioUrl}
+          duration={song.duration}
+          onTimeUpdate={handleTime}
+        />
+      )}
     </div>
   );
 }

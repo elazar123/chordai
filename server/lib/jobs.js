@@ -100,17 +100,26 @@ async function process(job) {
   update(job, { pct: 25, message: "מנתח אקורדים" });
   const sheet = await runAnalyzer(job, songId, audioPath);
 
+  // YouTube audio is a means to an end: we analyse it, keep the chords, and
+  // delete it. Playback then comes from YouTube's own embedded player, so we
+  // never store or serve someone else's recording.
+  const isYouTube = job.kind === "youtube";
+  if (isYouTube) {
+    update(job, { pct: 99, message: "מוחק את קובץ השמע הזמני" });
+    fs.rmSync(audioPath, { force: true });
+  }
+
   const song = saveSong({
     id: songId,
     title: meta.title || "שיר ללא שם",
     artist: meta.artist || null,
     thumbnail: meta.thumbnail || null,
-    source:
-      job.kind === "youtube"
-        ? { type: "youtube", url: job.payload.url, videoId: job.payload.videoId }
-        : { type: job.payload.origin || "upload" },
-    audioFile: path.basename(audioPath),
-    audioUrl: `/audio/${path.basename(audioPath)}`,
+    source: isYouTube
+      ? { type: "youtube", url: job.payload.url, videoId: job.payload.videoId }
+      : { type: job.payload.origin || "upload" },
+    owner: job.payload.owner || null,
+    audioFile: isYouTube ? null : path.basename(audioPath),
+    audioUrl: isYouTube ? null : `/audio/${path.basename(audioPath)}`,
     // Lets an identical re-upload be recognised and served from the library.
     audioHash: job.payload.audioHash || null,
     duration: sheet.duration,

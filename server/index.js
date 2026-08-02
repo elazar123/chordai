@@ -1,16 +1,20 @@
 import express from "express";
-import cors from "cors";
+import cookieParser from "cookie-parser";
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
 import { api } from "./routes/api.js";
+import { readSession, authEnabled } from "./lib/auth.js";
 
 const app = express();
 
-app.use(cors());
+// Sessions ride on a cookie, so the API must stay same-origin. Enabling CORS
+// here would let any site make credentialed calls on a signed-in user's behalf.
+app.set("trust proxy", 1);
+app.use(cookieParser());
 app.use(express.json({ limit: "5mb" }));
 
-app.use("/api", api);
+app.use("/api", readSession, api);
 
 // Audio is served with range support so the player can seek without downloading
 // the whole file first.
@@ -47,5 +51,11 @@ app.listen(config.port, () => {
   if (!fs.existsSync(config.webDist)) {
     console.log(`  (מצב פיתוח — הממשק רץ בנפרד על Vite)`);
   }
-  console.log(`  מודל תמלול: ${config.whisperModel} | שפה: ${config.defaultLanguage}\n`);
+  console.log(`  מודל תמלול: ${config.whisperModel} | שפה: ${config.defaultLanguage}`);
+  console.log(
+    authEnabled()
+      ? `  התחברות: גוגל${config.allowedEmails.length ? ` (${config.allowedEmails.length} כתובות מורשות)` : ""}`
+      : `  התחברות: כבויה — מצב מקומי פתוח`
+  );
+  console.log("");
 });

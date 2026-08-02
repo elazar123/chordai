@@ -62,6 +62,17 @@ export const config = {
   separateVocals: process.env.CHORDAI_SEPARATE !== "false",
   separationDevice: process.env.CHORDAI_SEPARATION_DEVICE || "mps",
 
+  // Google sign-in. Leave the client id empty to run as an open local tool;
+  // set it and every request must carry a signed session.
+  googleClientId: process.env.CHORDAI_GOOGLE_CLIENT_ID || "",
+  // Optional gate: only these addresses may sign in. Empty means anyone with a
+  // Google account, which is what a public deployment usually wants.
+  allowedEmails: (process.env.CHORDAI_ALLOWED_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean),
+  secureCookies: process.env.CHORDAI_SECURE_COOKIES === "true",
+
   maxUploadBytes: Number(process.env.CHORDAI_MAX_UPLOAD || 200 * 1024 * 1024),
 };
 

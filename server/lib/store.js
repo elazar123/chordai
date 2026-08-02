@@ -48,19 +48,23 @@ export function findSongBy(predicate) {
   return null;
 }
 
+// Lookups are scoped to one owner: two users pasting the same link each get
+// their own sheet, and nobody learns what anyone else has analysed.
+const owned = (song, ownerId) => !ownerId || song.owner === ownerId;
+
 /** Look up a previously analysed YouTube video by its id. */
-export function findByVideoId(videoId) {
+export function findByVideoId(videoId, ownerId) {
   if (!videoId) return null;
-  return findSongBy((song) => song.source?.videoId === videoId);
+  return findSongBy((song) => song.source?.videoId === videoId && owned(song, ownerId));
 }
 
 /** Look up a previously analysed upload/recording by its content hash. */
-export function findByAudioHash(hash) {
+export function findByAudioHash(hash, ownerId) {
   if (!hash) return null;
-  return findSongBy((song) => song.audioHash === hash);
+  return findSongBy((song) => song.audioHash === hash && owned(song, ownerId));
 }
 
-export function listSongs() {
+export function listSongs(ownerId) {
   if (!fs.existsSync(config.songsDir)) return [];
   return fs
     .readdirSync(config.songsDir)
@@ -70,6 +74,7 @@ export function listSongs() {
         const song = JSON.parse(
           fs.readFileSync(path.join(config.songsDir, name), "utf8")
         );
+        if (!owned(song, ownerId)) return null;
         // The summary drops blocks/chords so the library list stays small.
         return {
           id: song.id,
@@ -90,6 +95,31 @@ export function listSongs() {
     })
     .filter(Boolean)
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+/**
+ * Hand songs created before sign-in existed to the first user who signs in.
+ * They were made by whoever was using this machine locally, and without this
+ * they would be invisible to everybody once auth is switched on.
+ */
+export function claimOrphanSongs(ownerId) {
+  if (!ownerId || !fs.existsSync(config.songsDir)) return 0;
+
+  let claimed = 0;
+  for (const name of fs.readdirSync(config.songsDir)) {
+    if (!name.endsWith(".json")) continue;
+    const file = path.join(config.songsDir, name);
+    try {
+      const song = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (song.owner) continue;
+      song.owner = ownerId;
+      fs.writeFileSync(file, JSON.stringify(song, null, 2), "utf8");
+      claimed++;
+    } catch {
+      // Skip anything unreadable.
+    }
+  }
+  return claimed;
 }
 
 export function deleteSong(id) {
