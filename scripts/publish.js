@@ -102,7 +102,26 @@ fs.writeFileSync(
   "utf8"
 );
 
-// 5. GitHub Pages serves _-prefixed paths through Jekyll unless told not to.
+// 5. Package the browser extension alongside the songbook, with a page that
+//    walks through installing it. Chrome refuses one-click installs from outside
+//    its store, so the best we can do is a download plus clear instructions.
+const extensionDir = path.join(ROOT, "extension");
+if (fs.existsSync(extensionDir)) {
+  execFileSync("zip", ["-qr", path.join(outDir, "chordai-extension.zip"), "."], {
+    cwd: extensionDir,
+  });
+  fs.copyFileSync(
+    path.join(extensionDir, "icons", "icon128.png"),
+    path.join(outDir, "icon128.png")
+  );
+  fs.copyFileSync(
+    path.join(ROOT, "scripts", "install-page.html"),
+    path.join(outDir, "install.html")
+  );
+  log("  · תוסף הדפדפן נארז + דף התקנה");
+}
+
+// 6. GitHub Pages serves _-prefixed paths through Jekyll unless told not to.
 fs.writeFileSync(path.join(outDir, ".nojekyll"), "", "utf8");
 
 const size = execFileSync("du", ["-sh", outDir], { encoding: "utf8" }).split("\t")[0];
