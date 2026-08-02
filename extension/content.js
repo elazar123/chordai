@@ -20,6 +20,7 @@ const state = {
   collapsed: false,
   transpose: 0,
   simple: true,
+  stability: "normal",
 };
 
 /* ---------- audio ---------- */
@@ -61,7 +62,8 @@ function tick() {
   if (state.video?.paused) return;
 
   analyser.getFloatFrequencyData(buffer);
-  const chord = state.detector.push(buffer);
+  // Playback position drives the minimum-duration rule, so it survives seeking.
+  const chord = state.detector.push(buffer, state.video.currentTime);
   if (!chord) return;
 
   const last = state.history[state.history.length - 1];
@@ -112,6 +114,7 @@ function buildPanel() {
         <span class="chordai-transpose">0</span>
         <button class="chordai-btn" data-act="up" title="העלה חצי טון">+</button>
         <button class="chordai-btn" data-act="simple" title="אקורדים פשוטים">♪</button>
+        <button class="chordai-btn chordai-stab" data-act="stability" title="יציבות הזיהוי">≡</button>
         <button class="chordai-btn" data-act="fold" title="כווץ">▾</button>
       </div>
     </div>
@@ -135,16 +138,39 @@ function buildPanel() {
     event.currentTarget.classList.toggle("on", state.simple);
     render();
   };
+  panel.querySelector('[data-act="stability"]').onclick = (event) => {
+    const order = ["responsive", "normal", "steady"];
+    const next = order[(order.indexOf(state.stability) + 1) % order.length];
+    state.stability = next;
+    state.detector?.setStability(next);
+    chrome.storage?.sync?.set({ stability: next });
+    showStability(event.currentTarget);
+  };
+
   panel.querySelector('[data-act="fold"]').onclick = (event) => {
     state.collapsed = !state.collapsed;
     panel.classList.toggle("collapsed", state.collapsed);
     event.currentTarget.textContent = state.collapsed ? "▴" : "▾";
   };
   panel.querySelector('[data-act="simple"]').classList.toggle("on", state.simple);
+  showStability(panel.querySelector('[data-act="stability"]'));
 
   makeDraggable(panel, panel.querySelector(".chordai-head"));
   document.body.appendChild(panel);
   return panel;
+}
+
+const STABILITY_LABELS = {
+  responsive: { glyph: "≡", text: "רגיש — מחליף מהר" },
+  normal: { glyph: "≣", text: "רגיל" },
+  steady: { glyph: "▤", text: "יציב — מחזיק אקורד" },
+};
+
+function showStability(button) {
+  const info = STABILITY_LABELS[state.stability] || STABILITY_LABELS.normal;
+  button.textContent = info.glyph;
+  button.title = `יציבות: ${info.text}`;
+  button.classList.toggle("on", state.stability !== "normal");
 }
 
 function makeDraggable(panel, handle) {
@@ -204,12 +230,17 @@ function start() {
 
   if (!state.panel) {
     state.panel = buildPanel();
-    chrome.storage?.sync?.get("pos", ({ pos }) => {
+    chrome.storage?.sync?.get(["pos", "stability"], ({ pos, stability }) => {
       if (pos?.left) {
         state.panel.style.left = pos.left;
         state.panel.style.top = pos.top;
         state.panel.style.right = "auto";
         state.panel.style.bottom = "auto";
+      }
+      if (stability) {
+        state.stability = stability;
+        state.detector?.setStability(stability);
+        showStability(state.panel.querySelector('[data-act="stability"]'));
       }
     });
   }
@@ -222,7 +253,7 @@ function start() {
   // A new video means a fresh chord history.
   video.addEventListener("loadstart", () => {
     state.history = [];
-    state.detector = new ChordDetector(state.audio.context.sampleRate, FFT_SIZE);
+    state.detector.reset();
     render();
   });
 }
